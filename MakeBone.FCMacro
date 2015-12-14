@@ -1,0 +1,88 @@
+import FreeCAD, Draft, DraftGeomUtils, math
+from PySide import QtGui, QtCore
+
+def vertex_hash(v):
+	p = v.Point		
+	return str(p.x) + ':' + str(p.y) + ':' +str(p.z)
+
+def out(str):
+	FreeCAD.Console.PrintMessage(str)
+	FreeCAD.Console.PrintMessage("\n")
+
+
+	
+
+def create_bones(raio):
+	sin_45 = math.sin((45 * math.pi) / 180)
+	wires = Draft.getSelection()
+	ve = {}
+	vsh = {}
+	
+	doc=App.activeDocument()
+	grp = doc.addObject("App::DocumentObjectGroup", "Bones") 
+	
+	
+	objects = []
+	for s in wires:
+		edges = s.Shape.Edges
+		for e in edges:
+			vs = e.Vertexes
+			for v in vs:
+				h = vertex_hash(v)
+				if not ve.has_key(h):
+					ve[h] = []
+				ve[h].append(e)
+				vsh[h] = s;
+	
+	
+	
+	for v in ve:
+		edges = ve[v]
+		if len(edges) < 1:
+			continue
+			
+		b = DraftGeomUtils.angleBisection(edges[0], edges[1])
+		
+		vbp0 = b.Vertexes[0].Point
+		vector = FreeCAD.Vector(vbp0.x,vbp0.y,vbp0.z);
+	
+		
+		#angle = 90
+		angle = -90
+		b.rotate(vector, FreeCAD.Vector(0,0,1),angle);
+	
+		e = edges[0];
+		r = vector.getAngle(DraftGeomUtils.vec(e))
+		out(r * 180/math.pi)
+	
+		vbp1 = b.Vertexes[1].Point
+		vector2 = FreeCAD.Vector(vbp0.x,vbp0.y,vbp0.z);
+	
+		vb = b.Vertexes
+		vbp1 = vb[0].Point;
+		vbp2 = vb[1].Point;
+	
+		vv = FreeCAD.Vector(vbp2.x - vbp1.x, vbp2.y - vbp1.y, vbp2.z - vbp1.z);
+		vv.Length = raio - vv.Length;
+	
+		#Draft.makeWire(points, closed=False, face=False, support=None)
+		
+		points=[FreeCAD.Vector(vbp1.x,vbp1.y,vbp1.z), FreeCAD.Vector(vbp2.x,vbp2.y,vbp2.z).add(vv)]
+		pl=FreeCAD.Placement()
+		pl.Rotation.Q = (0.0,0.0,0,1.0)
+		pl.Base = points[1]
+		
+		c = Draft.makeCircle(radius=raio, placement=pl, face=False, support=None)
+		grp.addObject(c)
+
+
+
+
+def main():
+	reply = QtGui.QInputDialog.getText(None, "Make Bones","Bones Radius:")
+	if reply[1]:
+		replyText = reply[0]
+		raio = int(replyText)
+		create_bones(raio)
+
+main()
