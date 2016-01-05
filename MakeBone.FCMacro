@@ -10,7 +10,12 @@ def out(str):
 	FreeCAD.Console.PrintMessage("\n")
 
 
+def to_degree(rad):
+	return rad * 180/math.pi
 	
+
+def get_closer_point(p, p1, p2):
+	return p.distanceToPoint(p1) > p.distanceToPoint(p2)
 
 def create_bones(raio):
 	sin_45 = math.sin((45 * math.pi) / 180)
@@ -34,26 +39,51 @@ def create_bones(raio):
 				ve[h].append(e)
 				vsh[h] = s;
 	
-	
-	
+
+	base = FreeCAD.Vector(1,0,0)
+	z = FreeCAD.Vector(0,0,1)
+
 	for v in ve:
 		edges = ve[v]
+		shape = vsh[v].Shape
 		if len(edges) < 1:
 			continue
 			
 		b = DraftGeomUtils.angleBisection(edges[0], edges[1])
 		
 		vbp0 = b.Vertexes[0].Point
-		vector = FreeCAD.Vector(vbp0.x,vbp0.y,vbp0.z);
-	
+		vbp1 = b.Vertexes[1].Point
+
+		outside = get_closer_point(edges[0].CenterOfMass, vbp0, vbp1)
 		
-		#angle = 90
-		angle = -90
-		b.rotate(vector, FreeCAD.Vector(0,0,1),angle);
-	
+		#vector = FreeCAD.Vector(vbp0.x,vbp0.y,vbp0.z);
+		vector = DraftGeomUtils.vec(b)
+		
+		
+		ve1 = DraftGeomUtils.vec(edges[0])	
+		ve2 = DraftGeomUtils.vec(edges[1])
+		
+		ave1 = to_degree(ve1.getAngle(base))
+		ave2 = to_degree(ve2.getAngle(base))
+		r = to_degree(vector.getAngle(base))
+
+		out(str(ave1) + "\t" + str(ave2) + "\t"  + str(r))
+			
 		e = edges[0];
 		r = vector.getAngle(DraftGeomUtils.vec(e))
-		out(r * 180/math.pi)
+		r = r * 180/math.pi
+
+		b.rotate(vbp0, z,90);
+		vbr1 = b.Vertexes[1].Point
+
+		b.rotate(vbp0, z,180);
+		vbr2 = b.Vertexes[1].Point
+		
+		inside = get_closer_point(edges[0].CenterOfMass, vbr1, vbr2)
+		
+		if(not inside):
+			angle = 180
+			b.rotate(vbp0, z,angle);
 	
 		vbp1 = b.Vertexes[1].Point
 		vector2 = FreeCAD.Vector(vbp0.x,vbp0.y,vbp0.z);
@@ -65,16 +95,18 @@ def create_bones(raio):
 		vv = FreeCAD.Vector(vbp2.x - vbp1.x, vbp2.y - vbp1.y, vbp2.z - vbp1.z);
 		vv.Length = raio - vv.Length;
 	
+		
+		#points=[FreeCAD.Vector(vbp1.x,vbp1.y,vbp1.z), FreeCAD.Vector(vbp2.x,vbp2.y,vbp2.z).add(vv)]
 		#Draft.makeWire(points, closed=False, face=False, support=None)
 		
-		points=[FreeCAD.Vector(vbp1.x,vbp1.y,vbp1.z), FreeCAD.Vector(vbp2.x,vbp2.y,vbp2.z).add(vv)]
+		vbp2 = vbp2.add(vv)
+
 		pl=FreeCAD.Placement()
 		pl.Rotation.Q = (0.0,0.0,0,1.0)
-		pl.Base = points[1]
+		pl.Base = vbp2
 		
 		c = Draft.makeCircle(radius=raio, placement=pl, face=False, support=None)
 		grp.addObject(c)
-
 
 
 
